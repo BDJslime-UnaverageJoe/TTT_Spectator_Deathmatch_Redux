@@ -1,6 +1,14 @@
 include("specdm_config.lua")
 include("specdm_von.lua")
 
+TEAM_DEATHMATCH = 2
+
+hook.Add("CreateTeams", "SpecDM_Team", function ()
+	team.SetUp(TEAM_DEATHMATCH, "Deathmatch", Color(255, 187, 0), false)
+
+    team.SetSpawnPoint(TEAM_DEATHMATCH, "info_player_deathmatch")
+end)
+
 if SpecDM.AutoIncludeWeapons then
 	SpecDM.Ghost_weapons.primary = {}
 	SpecDM.Ghost_weapons.secondary = {}
@@ -26,7 +34,7 @@ end
 local meta = FindMetaTable("Player")
 
 function meta:IsGhost()
-	return self:GetNWBool("SpecDM_Enabled", false)
+	return self:Team() == TEAM_DEATHMATCH
 end
 
 hook.Add("PlayerFootstep", "PlayerFootstep_Ghost", function(ply, pos, foot, sound, volume, rf)
