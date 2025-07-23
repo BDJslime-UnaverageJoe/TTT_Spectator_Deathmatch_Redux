@@ -24,7 +24,6 @@ util.AddNetworkString("SpecDM_OpenStats")
 util.AddNetworkString("SpecDM_AskOpenStats")
 util.AddNetworkString("SpecDM_QuakeSound")
 util.AddNetworkString("SpecDM_Hitmarker")
-util.AddNetworkString("SpecDM_CreateRagdoll")
 util.AddNetworkString("SpecDM_RespawnTimer")
 
 if SpecDM.QuakeSoundsEnabled then
