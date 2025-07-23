@@ -93,6 +93,7 @@ timer.Create("SpecDM_Time", 1, 0, function()
 	end
 end)
 
+/*
 hook.Add("PlayerDeath", "PlayerDeath_SpecDMStats", function(ply, inflictor, killer)
 	if not ply:IsBot() then
 		ply:SpecDM_CheckKillRows()
@@ -146,6 +147,7 @@ hook.Add("PlayerDeath", "PlayerDeath_SpecDMStats", function(ply, inflictor, kill
 		end
 	end
 end)
+*/
 
 hook.Add("TTTEndRound", "TTTEndRound_SpecDMStats", function()
 	sql.Begin()

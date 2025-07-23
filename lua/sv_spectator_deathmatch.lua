@@ -215,12 +215,6 @@ hook.Add("EntityTakeDamage", "EntityTakeDamage_SpecDMHitmarker", function(ent, d
 	end
 end)
 
-hook.Add("DoPlayerDeath", "DoPlayerDeath_SpecDMRagdoll", function(ply)
-	if ply:IsGhost() then
-		ply:CreateRagdoll()
-	end
-end)
-
 if SpecDM.HP_Regen then
 	timer.Create("SpecDM_HPRegen", 1, 0, function()
 		if GetRoundState() == ROUND_ACTIVE then
