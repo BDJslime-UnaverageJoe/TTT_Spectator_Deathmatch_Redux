@@ -63,10 +63,6 @@ function meta:SpecDM_Error(error_str)
 	net.Send(self)
 end
 
-function meta:SetGhost(bool)
-	self:SetNWBool("SpecDM_Enabled", bool)
-end
-
 function SpecDM:RelationShip(victim)
 	for _, npc in ipairs(ents.FindByClass("npc_*")) do
 		if isfunction(npc.AddEntityRelationship) then
