@@ -14,6 +14,7 @@ include("sv_quakesounds.lua")
 
 util.AddNetworkString("SpecDM_Error")
 util.AddNetworkString("SpecDM_Ghost")
+util.AddNetworkString("SpecDM_ChangeState")
 util.AddNetworkString("SpecDM_Autoswitch")
 util.AddNetworkString("SpecDM_SendLoadout")
 util.AddNetworkString("SpecDM_GhostJoin")
@@ -75,6 +76,7 @@ function SpecDM:RelationShip(victim)
 end
 
 function meta:GiveGhostWeapons()
+	self.EquippedDM = false
 	if not SpecDM.LoadoutEnabled or not self.ghost_primary or self.ghost_primary == "random" or not table.HasValue(SpecDM.Ghost_weapons.primary, self.ghost_primary) then
 		self:Give(SpecDM.Ghost_weapons.primary[math.random(#SpecDM.Ghost_weapons.primary)])
 	else
@@ -88,45 +90,56 @@ function meta:GiveGhostWeapons()
 	end
 
 	self:Give("weapon_ghost_crowbar")
+	self.EquippedDM = true
 end
 
-function meta:ManageGhost(spawn, silent)
-	local silent = silent or false
-
-	self:SetGhost(spawn)
-
-	if spawn then
-		self:Spawn()
-		self:GiveGhostWeapons()
-
-		SpecDM:RelationShip(self)
-	else
-		self:KillSilent()
-		self:Spectate(OBS_MODE_ROAMING)
+hook.Add("WeaponEquip", "WeaponEquip_SpecDM", function(weapon, owner)
+	if owner:IsGhost() then
+		weapon.AllowDrop = false
 	end
+end)
+
+function SpecDM:JoinDM(ply, silent)
+	local silent = silent or false
+	ply:SetTeam(TEAM_DEATHMATCH)
+	ply:Spawn()
+	ply:GiveGhostWeapons()
+	SpecDM:RelationShip(ply)
 
 	net.Start("SpecDM_Ghost")
 	net.WriteUInt(spawn and 1 or 0, 1)
-	net.Send(self)
+	net.Send(ply)
 
-	if silent then return end
+	if not silent then
+		local filter = RecipientFilter()
+		filter:AddAllPlayers()
+		filter:RemovePlayer(ply)
 
-	local filter = RecipientFilter()
-	filter:AddAllPlayers()
-	filter:RemovePlayer(self)
-
-	net.Start("SpecDM_GhostJoin")
-	net.WriteUInt(spawn and 1 or 0, 1)
-	net.WriteEntity(self)
-	net.Send(filter)
+		net.Start("SpecDM_GhostJoin")
+		net.WriteUInt(spawn and 1 or 0, 1)
+		net.WriteEntity(ply)
+		net.Send(filter)
+	end
 end
+
+function SpecDM:LeaveDM(ply)
+	ply:KillSilent()
+	ply:SetTeam(TEAM_SPEC)
+	ply:Spectate(OBS_MODE_ROAMING)
+end
+
+net.Receive("SpecDM_ChangeState", function(len, ply)
+	ply:WantsToDM()
+end)
+
+
 
 local allowed_groups = {}
 for _, v in ipairs(SpecDM.AllowedGroups) do
 	allowed_groups[v] = true
 end
 
-function meta:WantsToDM()
+function plymeta:WantsToDM()
 	local allowed = true
 
 	if SpecDM.RestrictCommand then
@@ -143,27 +156,19 @@ function meta:WantsToDM()
 		elseif GetRoundState() ~= ROUND_ACTIVE then
 			self:SpecDM_Error("Error: Current round is inactive.")
 		elseif not self.spawning_ghost then
-			if tonumber(self.DMTimer) and self.DMTimer > 0 then
-				self:SpecDM_Error("Wait "..tostring(self.DMTimer).." second(s) before using this command again!")
+			if tonumber(self.DMTimer) and self.DMTimer > CurTime() then
+				self:SpecDM_Error("Wait ".. string.NiceTime(self.DMTimer - CurTime()).." second(s) before using this command again!")
 			else
 				local self = self
-				self:ManageGhost(not self:IsGhost())
 
-				self.DMTimer = 10
+				if (self:IsGhost()) then
+					SpecDM:LeaveDM(self)
+				else
+					SpecDM:JoinDM(self)
+				end
 
-				local timername = "SpecDM_Timer_" .. tostring(self:UniqueID())
+				self.DMTimer = CurTime() + 10
 
-				timer.Create(timername, 1, 0, function()
-					if not IsValid(self) then
-						timer.Remove(timername)
-					else
-						self.DMTimer = self.DMTimer - 1
-
-						if self.DMTimer <= 0 then
-							timer.Remove(timername)
-						end
-					end
-				end)
 			end
 		end
 	else

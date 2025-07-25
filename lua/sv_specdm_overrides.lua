@@ -1,18 +1,3 @@
-local old_concommandAdd = concommand.Add
-concommand.Add = function(command, func, ...)
-	if command == "ttt_spec_use" or command == "ttt_dropweapon" then
-		local old_func = func
-
-		func = function(ply, cmd, arg)
-			if IsValid(ply) and ply:IsGhost() then return end
-
-			return old_func(ply, cmd, arg)
-		end
-	end
-
-	return old_concommandAdd(command, func, ...)
-end
-
 hook.Add("PlayerSpawn", "PlayerSpawn_SpecDM", function(ply)
 	if ply:IsGhost() then
 		ply.has_spawned = true
@@ -74,52 +59,8 @@ end)
 
 
 hook.Add("Initialize", "Initialize_SpecDM", function()
-	local old_KeyPress = GAMEMODE.KeyPress
-	function GAMEMODE:KeyPress(ply, key)
-		if IsValid(ply) and ply:IsGhost() then
-			if ply.allowrespawn then
-				SpecDM_Respawn(ply)
-			end
-
-			return
-		end
-
-		return old_KeyPress(self, ply, key)
-	end
-
-	local old_SpectatorThink = GAMEMODE.SpectatorThink
-	function GAMEMODE:SpectatorThink(ply)
-		if IsValid(ply) and ply:IsGhost() then
-            ply:Extinguish()
-
-            return true
-        end
-
-		old_SpectatorThink(self, ply)
-	end
-
-	local old_PlayerCanPickupWeapon = GAMEMODE.PlayerCanPickupWeapon
-	function GAMEMODE:PlayerCanPickupWeapon(ply, wep)
-		if not IsValid(ply) or not IsValid(wep) then return end
-
-		if ply:IsGhost() then
-			return string.Left(wep:GetClass(), #"weapon_ghost") == "weapon_ghost"
-		end
-
-		return old_PlayerCanPickupWeapon(self, ply, wep)
-	end
 
 	local meta = FindMetaTable("Player")
-
-	local old_SpawnForRound = meta.SpawnForRound
-	function meta:SpawnForRound(dead_only)
-		if self:IsGhost() then
-            self:SetGhost(false)
-            self:ManageGhost(false, false)
-		end
-
-		return old_SpawnForRound(self, dead_only)
-	end
 
 	local old_ResetRoundFlags = meta.ResetRoundFlags
 	function meta:ResetRoundFlags()
@@ -170,6 +111,20 @@ hook.Add("Initialize", "Initialize_SpecDM", function()
 	concommand.Remove("ttt_spectate") -- local function without a hook.call
 
 	concommand.Add("ttt_spectate", force_spectate)
+end)
+
+hook.Add("PlayerButtonDown", "SpecDM_Respawn", function(ply, key)
+	if ply:IsGhost() and ply.allowrespawn then
+		SpecDM_Respawn(ply)
+	end
+end)
+
+hook.Add("PlayerCanPickupWeapon", "SpecDM_Loadout", function(ply, weapon)
+	if ply:IsGhost() and ply.EquippedDM then return false end
+end)
+
+hook.Add("TTTCanPickupAmmo", "SpecDM_Pickup", function(ply, ammo)
+	if ply:IsGhost() and ply.EquippedDM then return false end
 end)
 
 hook.Add("AcceptInput", "AcceptInput_Ghost", function(ent, name, activator, caller, data)

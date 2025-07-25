@@ -689,3 +689,8 @@ net.Receive("SpecDM_RespawnTimer", function()
 		respawntime = -2
 	end)
 end)
+
+concommand.Add("specdm", function()
+	net.Start("SpecDM_ChangeState")
+	net.SendToServer()
+end)
