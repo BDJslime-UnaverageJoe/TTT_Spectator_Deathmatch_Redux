@@ -61,7 +61,7 @@ net.Receive("SpecDM_GhostJoin", function()
         table.RemoveByValue(ghosttable, ply)
         table.insert(livingtable, ply)
     end
-    if not LocalPlayer():IsSpec() then return end
+    if LocalPlayer():IsActive() then return end
     if pac and not joined then
        pac.TogglePartDrawing(ply, false)
    end
@@ -268,7 +268,7 @@ if not SpecDM.IsScoreboardCustom then
 			if not force and not self:IsVisible() then return end
 
 			for _, v in ipairs(player.GetAll()) do
-				if v:IsGhost() and LocalPlayer():IsSpec() then
+				if v:IsGhost() and LocalPlayer():IsGhost() then
 					if self.ply_groups[GROUP_DEATHMATCH] and not self.ply_groups[GROUP_DEATHMATCH]:HasPlayerRow(v) then
 						self.ply_groups[GROUP_DEATHMATCH]:AddPlayerRow(v)
 					end
@@ -280,77 +280,33 @@ if not SpecDM.IsScoreboardCustom then
 	end)
 end
 
-hook.Add("Initialize", "Initialize_Ghost", function()
-
-	function ScoreGroup(p)
-		if not IsValid(p) then return -1 end
-
-		local group = hook.Call("TTTScoreGroup", nil, p)
-
-		if group then
-			return group
-		end
-
-		local client = LocalPlayer()
-
-		if p:IsGhost() then
-			if not p:GetNWBool("PlayedSRound", false) then
-				return GROUP_SPEC
-			end
-
-			if p:GetNWBool("body_found", false) then
+-- Messy and untested, but at least its not overriding
+-- Ghosts are assumed to IsSpec and not Alive
+hook.Add("TTTScoreGroup", "TTTScoreGroup_SpecDM", function(ply)
+	if ply:IsGhost() then
+		if not ply:GetNWBool("PlayedSRound", false) then return GROUP_SPEC end
+		if DetectiveMode() then
+			if CR_VERSION and p.search_result or p:GetNWBool("body_searched", false) then
+				return GROUP_SEARCHED
+			elseif p:GetNWBool("body_found", false) then
 				return GROUP_FOUND
 			else
-				if client:IsSpec() or client:IsActiveTraitor() or ((GAMEMODE.round_state ~= ROUND_ACTIVE) and client:IsTerror()) then
+				local client = LocalPlayer()
+				-- To terrorists, missing players show as alive
+				if CR_VERSION and (client:IsActiveTraitorTeam() or client:IsActiveMonsterTeam() or (client:IsActiveIndependentTeam() and cvars.Bool("ttt_" .. ROLE_STRINGS_RAW[client:GetRole()] .. "_update_scoreboard", false))) 
+				or client:IsActiveTraitor() 
+				or ((GAMEMODE.round_state ~= ROUND_ACTIVE) and client:IsTerror()) then
 					return GROUP_NOTFOUND
 				else
 					return GROUP_TERROR
 				end
 			end
 		end
-
-		if DetectiveMode() then
-			if p:IsSpec() and p:GetNWBool("PlayedSRound", false) and not p:Alive() then
-				if p:GetNWBool("body_found", false) then
-					return GROUP_FOUND
-				else
-					if client:IsSpec() or client:IsActiveTraitor() or ((GAMEMODE.round_state ~= ROUND_ACTIVE) and client:IsTerror()) then
-						return GROUP_NOTFOUND
-					else
-						return GROUP_TERROR
-					end
-				end
-			end
-		end
-
-		return p:IsTerror() and GROUP_TERROR or GROUP_SPEC
+		return GROUP_SPEC
 	end
+end)
 
-	/*function util.GetPlayerTrace(ply, dir)
-		dir = dir or ply:GetAimVector()
-
-		local trace = {}
-
-		trace.start = ply:EyePos()
-		trace.endpos = trace.start + (dir * (32768))
-
-		local plyghost = ply:IsGhost()
-		if plyghost and showalive:GetBool() then
-			trace.filter = ply
-
-			return trace
-		end
-
-		trace.filter = function(ent)
-			if ent == ply or (ent:IsPlayer() and ((not ent:IsGhost() and plyghost) or (ent:IsGhost() and not plyghost))) then
-				return false
-			end
-
-			return true
-		end
-
-		return trace
-	end*/
+hook.Add("Initialize", "Initialize_Ghost", function()
 
    local oldTraceLine = util.TraceLine
    function util.TraceLine(tbl)
@@ -402,12 +358,6 @@ hook.Add("TTTBeginRound", "TTTBeginRound_TableGhost", function()
     for _, v in ipairs(player.GetAll()) do
         table.insert(livingtable, v)
     end
-end)
-
-hook.Add("HUDShouldDraw", "SpecDM_TTTPropSpec", function(name)
-	if name == "TTTPropSpec" and LocalPlayer():IsGhost() and not showalive:GetBool() then
-		return false
-	end
 end)
 
 local primary = CreateClientConVar("ttt_specdm_primaryweapon", "random", FCVAR_ARCHIVE)
@@ -480,7 +430,7 @@ net.Receive("SpecDM_Autoswitch", function()
 	if ((SpecDM.ForceDeathmatch and force_deathmatch:GetBool()) or (not SpecDM.ForceDeathmatch and autoswitch:GetBool())) and GetRoundState() == ROUND_ACTIVE and not LocalPlayer():IsGhost() then
 		spawned = true
 
-		RunConsoleCommand("say_team", SpecDM.Commands[1])
+		RunConsoleCommand(specdm)
 	elseif not SpecDM.ForceDeathmatch and SpecDM.PopUp then
 		local frame = vgui.Create("DFrame")
 		frame:SetSize(250, 120)
@@ -498,7 +448,7 @@ net.Receive("SpecDM_Autoswitch", function()
 		report:SetText("Join the Spectator Deathmatch")
 
 		report.DoClick = function()
-			RunConsoleCommand("say_team", SpecDM.Commands[1])
+			RunConsoleCommand(specdm)
 
 			frame:Close()
 		end

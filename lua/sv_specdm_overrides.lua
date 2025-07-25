@@ -131,6 +131,16 @@ hook.Add("TTTCanPickupAmmo", "SpecDM_Pickup", function(ply, ammo)
 	if ply:IsGhost() and ply.EquippedDM then return false end
 end)
 
+hook.Add("TTTBeginRound", "BeginRound_SpecDM", function()
+	for _, v in ipairs(player.GetAll()) do
+		if v:IsTerror() then
+			v:SetNWBool("PlayedSRound", true)
+		else
+			v:SetNWBool("PlayedSRound", false)
+		end
+	end
+end)
+
 hook.Add("AcceptInput", "AcceptInput_Ghost", function(ent, name, activator, caller, data)
 	if IsValid(caller) and caller:GetClass() == "ttt_logic_role" then
 		if IsValid(activator) and activator:IsPlayer() and activator:IsGhost() then
