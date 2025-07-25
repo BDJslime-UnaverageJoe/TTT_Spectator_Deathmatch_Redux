@@ -21,7 +21,18 @@ local function SpecDM_Respawn(ply)
     end
 end
 
-hook.Add("PlayerSilentDeath", "PlayerDeath_SpecDM", function(victim)
+hook.Add("PlayerDeath", "PlayerDeath_SpecDM", function(victim, inflictor, attacker)
+	if GetRoundState() == ROUND_ACTIVE and victim:IsActive() then
+		timer.Simple(2, function()
+			if IsValid(victim) then
+				net.Start("SpecDM_Autoswitch")
+				net.Send(victim)
+			end
+		end)
+	end
+end)
+
+hook.Add("PlayerSilentDeath", "PlayerSilentDeath_SpecDM", function(victim)
 	if victim:IsGhost() then
 		if SpecDM.RespawnTime < 1 then
 			timer.Simple(0, function()
@@ -47,13 +58,6 @@ hook.Add("PlayerSilentDeath", "PlayerDeath_SpecDM", function(victim)
 				end)
 			end
 		end
-	elseif GetRoundState() == ROUND_ACTIVE and victim:IsActive() then
-		timer.Simple(2, function()
-			if IsValid(victim) then
-				net.Start("SpecDM_Autoswitch")
-				net.Send(victim)
-			end
-		end)
 	end
 end)
 
