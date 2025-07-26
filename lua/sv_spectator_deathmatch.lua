@@ -49,7 +49,7 @@ end
 
 hook.Add("PlayerSay", "PlayerSay_SpecDM", function(ply, text, public)
 	if commands_table[string.lower(text)] then
-		ply:WantsToDM()
+		SpecDM:WantsToDM(ply)
 
 		return ""
 	end
@@ -95,37 +95,39 @@ hook.Add("WeaponEquip", "WeaponEquip_SpecDM", function(weapon, owner)
 	end
 end)
 
-function SpecDM:JoinDM(ply, silent)
+function meta:ManageGhost(spawn, silent)
 	local silent = silent or false
-	ply:SetTeam(TEAM_DEATHMATCH)
-	ply:Spawn()
-	ply:GiveGhostWeapons()
-	SpecDM:RelationShip(ply)
+
+	if spawn then
+		self:SetTeam(TEAM_DEATHMATCH)
+		self:Spawn()
+		self:GiveGhostWeapons()
+
+		SpecDM:RelationShip(self)
+	else
+		self:KillSilent()
+		self:SetTeam(TEAM_SPEC)
+		self:Spectate(OBS_MODE_ROAMING)
+	end
 
 	net.Start("SpecDM_Ghost")
 	net.WriteUInt(spawn and 1 or 0, 1)
-	net.Send(ply)
+	net.Send(self)
 
-	if not silent then
-		local filter = RecipientFilter()
-		filter:AddAllPlayers()
-		filter:RemovePlayer(ply)
+	if silent then return end
 
-		net.Start("SpecDM_GhostJoin")
-		net.WriteUInt(spawn and 1 or 0, 1)
-		net.WriteEntity(ply)
-		net.Send(filter)
-	end
-end
+	local filter = RecipientFilter()
+	filter:AddAllPlayers()
+	filter:RemovePlayer(self)
 
-function SpecDM:LeaveDM(ply)
-	ply:KillSilent()
-	ply:SetTeam(TEAM_SPEC)
-	ply:Spectate(OBS_MODE_ROAMING)
+	net.Start("SpecDM_GhostJoin")
+	net.WriteUInt(spawn and 1 or 0, 1)
+	net.WriteEntity(self)
+	net.Send(filter)
 end
 
 net.Receive("SpecDM_ChangeState", function(len, ply)
-	ply:WantsToDM()
+	SpecDM:WantsToDM(ply)
 end)
 
 
@@ -135,40 +137,34 @@ for _, v in ipairs(SpecDM.AllowedGroups) do
 	allowed_groups[v] = true
 end
 
-function plymeta:WantsToDM()
+function SpecDM:WantsToDM(ply)
 	local allowed = true
 
 	if SpecDM.RestrictCommand then
 		allowed = false
 
-		if allowed_groups[self:GetUserGroup()] then
+		if allowed_groups[ply:GetUserGroup()] then
 			allowed = true
 		end
 	end
 
 	if allowed then
-		if self:IsActive() then
-			self:SpecDM_Error("You can't enter spectator deathmatch when you're alive.")
+		if ply:IsActive() then
+			ply:SpecDM_Error("You can't enter spectator deathmatch when you're alive.")
 		elseif GetRoundState() ~= ROUND_ACTIVE then
-			self:SpecDM_Error("Error: Current round is inactive.")
-		elseif not self.spawning_ghost then
-			if tonumber(self.DMTimer) and self.DMTimer > CurTime() then
-				self:SpecDM_Error("Wait ".. string.NiceTime(self.DMTimer - CurTime()).." second(s) before using this command again!")
+			ply:SpecDM_Error("Error: Current round is inactive.")
+		elseif not ply.spawning_ghost then
+			if tonumber(ply.DMTimer) and ply.DMTimer > CurTime() then
+				ply:SpecDM_Error("Wait ".. string.NiceTime(ply.DMTimer - CurTime()).." second(s) before using this command again!")
 			else
-				local self = self
+				ply:ManageGhost(not ply:IsGhost())
 
-				if (self:IsGhost()) then
-					SpecDM:LeaveDM(self)
-				else
-					SpecDM:JoinDM(self)
-				end
-
-				self.DMTimer = CurTime() + 10
+				ply.DMTimer = CurTime() + 10
 
 			end
 		end
 	else
-		self:SpecDM_Error("Error : you are not allowed to enter Spectator Deathmatch")
+		ply:SpecDM_Error("Error : you are not allowed to enter Spectator Deathmatch")
 	end
 end
 
